@@ -124,13 +124,17 @@ async def set_configuration_item(request):
     try:
         value = data['value']
         await cf_mgr.set_category_item_value_entry(category_name, config_item, value)
-        result = await cf_mgr.get_category_item(category_name, config_item)
-
-        if result is None:
-            raise web.HTTPNotFound(reason="No detail found for the category_name: {} and config_item: {}".format(category_name, config_item))
-
     except KeyError:
         raise web.HTTPBadRequest(reason='Missing required value for {}'.format(config_item))
+    except ValueError:
+        raise web.HTTPNotFound(reason="No detail found for the category_name: {} and item_name: {}".format(category_name, config_item))
+    except Exception as ex:
+        raise web.HTTPException(reason=str(ex))
+
+    result = await cf_mgr.get_category_item(category_name, config_item)
+    if result is None:
+        raise web.HTTPNotFound(
+            reason="No detail found for the category_name: {} and config_item: {}".format(category_name, config_item))
 
     return web.json_response(result)
 
@@ -158,10 +162,17 @@ async def delete_configuration_item_value(request):
 
     # TODO: make it optimized and elegant
     cf_mgr = ConfigurationManager(connect.get_storage())
-    await cf_mgr.set_category_item_value_entry(category_name, config_item, '')
-    result = await cf_mgr.get_category_item(category_name, config_item)
 
+    try:
+        await cf_mgr.set_category_item_value_entry(category_name, config_item, '')
+    except ValueError:
+        raise web.HTTPNotFound(reason="No detail found for the category_name: {} and item_name: {}".format(category_name, config_item))
+    except Exception as ex:
+        raise web.HTTPException(reason=str(ex))
+
+    result = await cf_mgr.get_category_item(category_name, config_item)
     if result is None:
-        raise web.HTTPNotFound(reason="No detail found for the category_name: {} and config_item: {}".format(category_name, config_item))
+        raise web.HTTPNotFound(
+            reason="No detail found for the category_name: {} and config_item: {}".format(category_name, config_item))
 
     return web.json_response(result)
