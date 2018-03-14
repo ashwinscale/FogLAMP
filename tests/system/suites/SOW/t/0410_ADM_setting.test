@@ -14,31 +14,37 @@
 ##############################################################################
 
 # Globals declaration
+declare EXECUTION_ENV
 declare SUITE_BASEDIR
 declare TEST_BASEDIR
 declare RESULT_DIR
 declare TEST_NAME
 
 declare FOGLAMP_SERVER
+declare FOGLAMP_HTTPPort
 declare FOGLAMP_SNAP_VERSION
 declare FOGLAMP_SNAP_UPDATE_VERSION
 declare FOGLAMP_NAME
 declare FOGLAMP_SNAP
-declare FOGLAMP_PORT
-declare SENDING_PROCESS_DATA
-declare SCHEDULE_ID_OMF_PLUGIN
 
-declare PI_SERVER
-declare PI_SERVER_PORT
-declare OMF_PRODUCER_TOKEN
-declare OMF_TYPE_ID
+declare CMD_CURL
 
 declare SNAPS_DIRECTORY
 
-declare ASSET_CODE
-
 # Reads configuration setting
 source ${SUITE_BASEDIR}/suite.cfg
+
+if [[ "${EXECUTION_ENV}" == "userver" ]]; then
+
+    echo ERROR : Test not implemented for the Ubuntu Server environment.
+    exit 1
+fi
+
+#
+## Temporary files, one will be overwritten every time the second one used only in append mode
+#
+tmp_file_overwrite="$RESULT_DIR/$TEST_NAME.4.temp"
+tmp_file_append="$RESULT_DIR/$TEST_NAME.5.temp"
 
 # Checks if a proper configuration is available
 if [[ "${FOGLAMP_SNAP_VERSION}"        == "x.x.x" || \
@@ -83,7 +89,7 @@ $TEST_BASEDIR/bash/exec_any_foglamp_command.bash stop                           
 $TEST_BASEDIR/bash/exec_any_foglamp_command.bash kill                                                                   >>  ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
 
 #
-# Starts, configures FogLAMP and tests the communication with the PI Server using OMF.
+## Starts and configures FogLAMP
 #
 $TEST_BASEDIR/bash/exec_any_foglamp_command.bash start                                                                  > ${RESULT_DIR}/$TEST_NAME.0.temp 2>&1
 tail -n1 ${RESULT_DIR}/$TEST_NAME.0.temp
@@ -91,4 +97,11 @@ tail -n1 ${RESULT_DIR}/$TEST_NAME.0.temp
 # Configures FogLAMP for the communication with the PI Server using OMF.
 $TEST_BASEDIR/bash/OMF_configure.bash
 
+# Pings FogLAMP
+if [[ "${EXECUTION_ENV}" == "ucore" ]]; then
 
+    sudo classic << EOF                                                                                                 >> ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+    curl -s http://${FOGLAMP_SERVER}:${FOGLAMP_HTTPPort}/foglamp/ping   | jq '.uptime="xxx"'                            > ${tmp_file_overwrite} 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+EOF
+    cat ${tmp_file_overwrite}
+fi
