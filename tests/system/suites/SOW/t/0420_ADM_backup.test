@@ -67,8 +67,8 @@ TEST_ID="${TEST_NAME:0:4}"
 TEST_ASSET_CODE=${ASSET_CODE}_${TEST_ID}
 
 # Injects data into FogLAMP
-echo '[{"name":"'${TEST_ASSET_CODE}'","sensor_values":[{"name":"sensor","type":"number","min":10,"max":10,"precision":0}]}]' >   $RESULT_DIR/$TEST_NAME.801.temp 2>&1
-$TEST_BASEDIR/bash/inject_fogbench_data.bash -t $RESULT_DIR/$TEST_NAME.801.temp                                         >>  $RESULT_DIR/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+echo '[{"name":"'${TEST_ASSET_CODE}'","sensor_values":[{"name":"sensor","type":"number","min":10,"max":10,"precision":0}]}]' >   ${tmp_file_overwrite} 2>&1
+$TEST_BASEDIR/bash/inject_fogbench_data.bash -t ${tmp_file_overwrite}                                                   >>  $RESULT_DIR/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
 grep '^Total Messages Transferred: ' $RESULT_DIR/$TEST_NAME.1.temp
 
 # Executes a backup
@@ -88,6 +88,10 @@ if [[ "${EXECUTION_ENV}" == "ucore" ]]; then
 EOF
     cat ${tmp_file_append}
 fi
+
+# FIXME:
+$TEST_BASEDIR/bash/sleep.bash 120
+
 
 # FIXME:
 #  | jq '.uptime="xxx"'
