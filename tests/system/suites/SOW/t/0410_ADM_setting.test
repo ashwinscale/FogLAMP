@@ -31,6 +31,9 @@ declare CMD_CURL
 
 declare SNAPS_DIRECTORY
 
+declare ASSET_CODE
+declare OMF_PRODUCER_TOKEN
+
 # Reads configuration setting
 source ${SUITE_BASEDIR}/suite.cfg
 
@@ -45,6 +48,9 @@ fi
 #
 tmp_file_overwrite="$RESULT_DIR/$TEST_NAME.4.temp"
 tmp_file_append="$RESULT_DIR/$TEST_NAME.5.temp"
+
+TEST_ID="${TEST_NAME:0:4}"
+TEST_ASSET_CODE=${ASSET_CODE}_${TEST_ID}
 
 # Checks if a proper configuration is available
 if [[ "${FOGLAMP_SNAP_VERSION}"        == "x.x.x" || \
@@ -105,3 +111,11 @@ if [[ "${EXECUTION_ENV}" == "ucore" ]]; then
 EOF
     cat ${tmp_file_overwrite}
 fi
+
+# Injects data into FogLAMP
+echo '[{"name":"'${TEST_ASSET_CODE}'","sensor_values":[{"name":"sensor","type":"number","min":10,"max":10,"precision":0}]}]' >   $RESULT_DIR/$TEST_NAME.801.temp 2>&1
+$TEST_BASEDIR/bash/inject_fogbench_data.bash -t $RESULT_DIR/$TEST_NAME.801.temp                                         >>  $RESULT_DIR/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+grep '^Total Messages Transferred: ' $RESULT_DIR/$TEST_NAME.1.temp
+
+# Waits until either the data is available in the PI server or it reaches the timeout.
+$TEST_BASEDIR/bash/OMF_wait_data.bash full ${OMF_PRODUCER_TOKEN} ${TEST_ASSET_CODE}

@@ -56,4 +56,41 @@ if [[ "${EXECUTION_ENV}" == "userver" ]]; then
     exit 1
 fi
 
-echo DBG - 0410_AD_backup
+#
+## Temporary files, one will be overwritten every time the second one used only in append mode
+#
+tmp_file_overwrite="$RESULT_DIR/$TEST_NAME.4.temp"
+tmp_file_append="$RESULT_DIR/$TEST_NAME.5.temp"
+
+
+TEST_ID="${TEST_NAME:0:4}"
+TEST_ASSET_CODE=${ASSET_CODE}_${TEST_ID}
+
+# Injects data into FogLAMP
+echo '[{"name":"'${TEST_ASSET_CODE}'","sensor_values":[{"name":"sensor","type":"number","min":10,"max":10,"precision":0}]}]' >   $RESULT_DIR/$TEST_NAME.801.temp 2>&1
+$TEST_BASEDIR/bash/inject_fogbench_data.bash -t $RESULT_DIR/$TEST_NAME.801.temp                                         >>  $RESULT_DIR/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+grep '^Total Messages Transferred: ' $RESULT_DIR/$TEST_NAME.1.temp
+
+# Executes a backup
+if [[ "${EXECUTION_ENV}" == "ucore" ]]; then
+
+    sudo classic << EOF                                                                                                 >> ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+    curl -s -X POST http://${FOGLAMP_SERVER}:${FOGLAMP_HTTPPort}/foglamp/backup                            > ${tmp_file_overwrite} 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+EOF
+    cat ${tmp_file_overwrite}
+fi
+
+# Retrieves the list of backups
+if [[ "${EXECUTION_ENV}" == "ucore" ]]; then
+
+    sudo classic << EOF                                                                                                 >> ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+    curl -s -X GET http://${FOGLAMP_SERVER}:${FOGLAMP_HTTPPort}/foglamp/backup                            >> ${tmp_file_append} 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+EOF
+    cat ${tmp_file_append}
+fi
+
+# FIXME:
+#  | jq '.uptime="xxx"'
+# POST /foglamp/backup - run a new backup
+# GET /foglamp/backup - return a list of all backups
+# GET /foglamp/backup/{backup-id}
