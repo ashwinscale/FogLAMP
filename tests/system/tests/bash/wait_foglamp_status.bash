@@ -2,7 +2,7 @@
 
 function evaluate_foglamp_status {
 
-    output=$(foglamp status 2>&1)
+    output=$(${FOGLAMP_EXE} status 2>&1)
 
     if [[ ${output} =~ 'FogLAMP uptime' ]]; then
 

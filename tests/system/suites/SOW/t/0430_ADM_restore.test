@@ -49,9 +49,9 @@ declare CMD_CURL
 # Reads configuration setting
 source ${SUITE_BASEDIR}/suite.cfg
 
-if [[ "${EXECUTION_ENV}" == "userver" ]]; then
+if [[ "${EXECUTION_ENV}" != "ucore" ]]; then
 
-    echo ERROR : Test not implemented for the Ubuntu Server environment.
+    echo ERROR : Test implemented only for the Ubuntu Core environment.
     exit 1
 fi
 
@@ -87,7 +87,7 @@ EOF
     cat ${TMP_FILE_OVERWRITE}
 fi
 
-$TEST_BASEDIR/bash/wait_restore_completion.bash
+$TEST_BASEDIR/bash/wait_restore_completion.bash 2
 
 echo Backup restored :
 # Retrieves the list of backups

@@ -48,13 +48,12 @@ declare CMD_CURL
 
 declare BACKUPS_DIR
 
-
 # Reads configuration setting
 source ${SUITE_BASEDIR}/suite.cfg
 
-if [[ "${EXECUTION_ENV}" == "userver" ]]; then
+if [[ "${EXECUTION_ENV}" != "ucore" ]]; then
 
-    echo ERROR : Test not implemented for the Ubuntu Server environment.
+    echo ERROR : Test implemented only for Ubuntu core environment.
     exit 1
 fi
 
@@ -85,13 +84,13 @@ echo Executes a backup :
 if [[ "${EXECUTION_ENV}" == "ucore" ]]; then
 
     sudo classic << EOF                                                                                                 >> ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
-    curl -s -X POST http://${FOGLAMP_SERVER}:${FOGLAMP_HTTPPort}/foglamp/backup  | jq -S "."                         > ${TMP_FILE_OVERWRITE} 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+    curl -s -X POST http://${FOGLAMP_SERVER}:${FOGLAMP_HTTPPort}/foglamp/backup  | jq -S "."                            > ${TMP_FILE_OVERWRITE} 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
     logout
 EOF
     cat ${TMP_FILE_OVERWRITE}
 fi
 
-$TEST_BASEDIR/bash/wait_backup_completion.bash
+$TEST_BASEDIR/bash/wait_backup_status.bash 1 "COMPLETED"
 
 $TEST_BASEDIR/bash/inject_sample_data.bash "${TEST_ASSET_CODE}"
 
@@ -104,13 +103,13 @@ echo Executes a backup :
 if [[ "${EXECUTION_ENV}" == "ucore" ]]; then
 
     sudo classic << EOF                                                                                                 >> ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
-    curl -s -X POST http://${FOGLAMP_SERVER}:${FOGLAMP_HTTPPort}/foglamp/backup  | jq -S "."                         > ${TMP_FILE_OVERWRITE} 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+    curl -s -X POST http://${FOGLAMP_SERVER}:${FOGLAMP_HTTPPort}/foglamp/backup  | jq -S "."                            > ${TMP_FILE_OVERWRITE} 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
     logout
 EOF
     cat ${TMP_FILE_OVERWRITE}
 fi
 
-$TEST_BASEDIR/bash/wait_backup_completion.bash
+$TEST_BASEDIR/bash/wait_backup_status.bash 2 "COMPLETED"
 
 # Retrieves backups list
 echo Retrieves backups list :
@@ -121,7 +120,7 @@ echo Retrieves the details of a backup :
 if [[ "${EXECUTION_ENV}" == "ucore" ]]; then
 
     sudo classic << EOF                                                                                                 >> ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
-    curl -s -X GET http://${FOGLAMP_SERVER}:${FOGLAMP_HTTPPort}/foglamp/backup/1 |  jq -S '.date="xxx"' > ${TMP_FILE_OVERWRITE} 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+    curl -s -X GET http://${FOGLAMP_SERVER}:${FOGLAMP_HTTPPort}/foglamp/backup/1 |  jq -S '.date="xxx"'                 > ${TMP_FILE_OVERWRITE} 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
     logout
 EOF
     cat ${TMP_FILE_OVERWRITE}
