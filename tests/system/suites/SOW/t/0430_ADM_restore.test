@@ -46,7 +46,6 @@ declare CMD_JQ
 declare CMD_AVBROWSE
 declare CMD_CURL
 
-
 # Reads configuration setting
 source ${SUITE_BASEDIR}/suite.cfg
 
@@ -56,4 +55,42 @@ if [[ "${EXECUTION_ENV}" == "userver" ]]; then
     exit 1
 fi
 
-echo DBG - 0430_AD_restore
+#
+## Temporary files, one will be overwritten every time the second one used only in append mode
+#
+export TMP_FILE_OVERWRITE="$RESULT_DIR/$TEST_NAME.4.temp"
+export TMP_FILE_APPEND="$RESULT_DIR/$TEST_NAME.5.temp"
+
+export TEST_ID="${TEST_NAME:0:4}"
+export TEST_ASSET_CODE=${ASSET_CODE}_${TEST_ID}
+
+#
+## Main
+#
+echo Initial status :
+# Retrieves the list of backups
+$TEST_BASEDIR/bash/retrieve_baskup_list.bash
+
+$TEST_BASEDIR/bash/retrieve_asset_list.bash
+
+$TEST_BASEDIR/bash/inject_sample_data.bash "${TEST_ASSET_CODE}"
+
+$TEST_BASEDIR/bash/retrieve_asset_list.bash
+
+echo Executes the restore :
+if [[ "${EXECUTION_ENV}" == "ucore" ]]; then
+
+    sudo classic << EOF                                                                                                 >> ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+    curl -s -X PUT http://${FOGLAMP_SERVER}:${FOGLAMP_HTTPPort}/foglamp/backup/1/restore  |  jq -S '.' > ${TMP_FILE_OVERWRITE} 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+    logout
+EOF
+    cat ${TMP_FILE_OVERWRITE}
+fi
+
+$TEST_BASEDIR/bash/wait_restore_completion.bash
+
+echo Backup restored :
+# Retrieves the list of backups
+$TEST_BASEDIR/bash/retrieve_baskup_list.bash
+
+$TEST_BASEDIR/bash/retrieve_asset_list.bash

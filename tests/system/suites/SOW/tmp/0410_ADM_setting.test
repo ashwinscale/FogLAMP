@@ -46,11 +46,11 @@ fi
 #
 ## Temporary files, one will be overwritten every time the second one used only in append mode
 #
-tmp_file_overwrite="$RESULT_DIR/$TEST_NAME.4.temp"
-tmp_file_append="$RESULT_DIR/$TEST_NAME.5.temp"
+export tmp_file_overwrite="$RESULT_DIR/$TEST_NAME.4.temp"
+export tmp_file_append="$RESULT_DIR/$TEST_NAME.5.temp"
 
-TEST_ID="${TEST_NAME:0:4}"
-TEST_ASSET_CODE=${ASSET_CODE}_${TEST_ID}
+export TEST_ID="${TEST_NAME:0:4}"
+export TEST_ASSET_CODE=${ASSET_CODE}_${TEST_ID}
 
 # Checks if a proper configuration is available
 if [[ "${FOGLAMP_SNAP_VERSION}"        == "x.x.x" || \
@@ -108,6 +108,7 @@ if [[ "${EXECUTION_ENV}" == "ucore" ]]; then
 
     sudo classic << EOF                                                                                                 >> ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
     curl -s http://${FOGLAMP_SERVER}:${FOGLAMP_HTTPPort}/foglamp/ping   | jq '.uptime="xxx"'                            > ${tmp_file_overwrite} 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+    logout
 EOF
     cat ${tmp_file_overwrite}
 fi

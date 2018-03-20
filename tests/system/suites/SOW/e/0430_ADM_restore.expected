@@ -1,1 +1,57 @@
-DBG - 0430_AD_restore
+Initial status :
+{
+  "backups": [
+    {
+      "date": "xxx",
+      "id": 2,
+      "status": "COMPLETED"
+    },
+    {
+      "date": "xxx",
+      "id": 1,
+      "status": "COMPLETED"
+    }
+  ]
+}
+[
+  {
+    "asset_code": "SOW_fogbench_test_0420",
+    "count": 2
+  }
+]
+Total Messages Transferred: 1
+[
+  {
+    "asset_code": "SOW_fogbench_test_0430",
+    "count": 1
+  },
+  {
+    "asset_code": "SOW_fogbench_test_0420",
+    "count": 2
+  }
+]
+Executes the restore :
+{
+  "status": "running"
+}
+Backup restored :
+{
+  "backups": [
+    {
+      "date": "xxx",
+      "id": 2,
+      "status": "RESTORED"
+    },
+    {
+      "date": "xxx",
+      "id": 1,
+      "status": "COMPLETED"
+    }
+  ]
+}
+[
+  {
+    "asset_code": "SOW_fogbench_test_0420",
+    "count": 2
+  }
+]

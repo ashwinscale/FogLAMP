@@ -46,6 +46,8 @@ declare CMD_JQ
 declare CMD_AVBROWSE
 declare CMD_CURL
 
+declare BACKUPS_DIR
+
 
 # Reads configuration setting
 source ${SUITE_BASEDIR}/suite.cfg
@@ -59,42 +61,72 @@ fi
 #
 ## Temporary files, one will be overwritten every time the second one used only in append mode
 #
-tmp_file_overwrite="$RESULT_DIR/$TEST_NAME.4.temp"
-tmp_file_append="$RESULT_DIR/$TEST_NAME.5.temp"
+export TMP_FILE_OVERWRITE="$RESULT_DIR/$TEST_NAME.4.temp"
+export TMP_FILE_APPEND="$RESULT_DIR/$TEST_NAME.5.temp"
 
+export TEST_ID="${TEST_NAME:0:4}"
+export TEST_ASSET_CODE=${ASSET_CODE}_${TEST_ID}
 
-TEST_ID="${TEST_NAME:0:4}"
-TEST_ASSET_CODE=${ASSET_CODE}_${TEST_ID}
+#
+## Main
+#
 
-# Injects data into FogLAMP
-echo '[{"name":"'${TEST_ASSET_CODE}'","sensor_values":[{"name":"sensor","type":"number","min":10,"max":10,"precision":0}]}]' >   ${tmp_file_overwrite} 2>&1
-$TEST_BASEDIR/bash/inject_fogbench_data.bash -t ${tmp_file_overwrite}                                                   >>  $RESULT_DIR/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
-grep '^Total Messages Transferred: ' $RESULT_DIR/$TEST_NAME.1.temp
+# Cleans up the backup directory
+rm -f ${BACKUPS_DIR}/*.dump
 
-# Executes a backup
+$TEST_BASEDIR/bash/inject_sample_data.bash "${TEST_ASSET_CODE}"
+
+$TEST_BASEDIR/bash/wait_data_stored.bash
+
+$TEST_BASEDIR/bash/retrieve_asset_list.bash
+
+# Executes the first backup
+echo Executes a backup :
 if [[ "${EXECUTION_ENV}" == "ucore" ]]; then
 
     sudo classic << EOF                                                                                                 >> ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
-    curl -s -X POST http://${FOGLAMP_SERVER}:${FOGLAMP_HTTPPort}/foglamp/backup                            > ${tmp_file_overwrite} 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+    curl -s -X POST http://${FOGLAMP_SERVER}:${FOGLAMP_HTTPPort}/foglamp/backup  | jq -S "."                         > ${TMP_FILE_OVERWRITE} 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+    logout
 EOF
-    cat ${tmp_file_overwrite}
+    cat ${TMP_FILE_OVERWRITE}
 fi
 
-# Retrieves the list of backups
+$TEST_BASEDIR/bash/wait_backup_completion.bash
+
+$TEST_BASEDIR/bash/inject_sample_data.bash "${TEST_ASSET_CODE}"
+
+$TEST_BASEDIR/bash/wait_data_stored.bash
+
+$TEST_BASEDIR/bash/retrieve_asset_list.bash
+
+# Executes the second backup
+echo Executes a backup :
 if [[ "${EXECUTION_ENV}" == "ucore" ]]; then
 
     sudo classic << EOF                                                                                                 >> ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
-    curl -s -X GET http://${FOGLAMP_SERVER}:${FOGLAMP_HTTPPort}/foglamp/backup                            >> ${tmp_file_append} 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+    curl -s -X POST http://${FOGLAMP_SERVER}:${FOGLAMP_HTTPPort}/foglamp/backup  | jq -S "."                         > ${TMP_FILE_OVERWRITE} 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+    logout
 EOF
-    cat ${tmp_file_append}
+    cat ${TMP_FILE_OVERWRITE}
 fi
 
-# FIXME:
-$TEST_BASEDIR/bash/sleep.bash 120
+$TEST_BASEDIR/bash/wait_backup_completion.bash
 
+# Retrieves backups list
+echo Retrieves backups list :
+$TEST_BASEDIR/bash/retrieve_baskup_list.bash
 
-# FIXME:
-#  | jq '.uptime="xxx"'
-# POST /foglamp/backup - run a new backup
-# GET /foglamp/backup - return a list of all backups
-# GET /foglamp/backup/{backup-id}
+# Retrieves the details of a backup
+echo Retrieves the details of a backup :
+if [[ "${EXECUTION_ENV}" == "ucore" ]]; then
+
+    sudo classic << EOF                                                                                                 >> ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+    curl -s -X GET http://${FOGLAMP_SERVER}:${FOGLAMP_HTTPPort}/foglamp/backup/1 |  jq -S '.date="xxx"' > ${TMP_FILE_OVERWRITE} 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+    logout
+EOF
+    cat ${TMP_FILE_OVERWRITE}
+fi
+
+# Lists backup files replacing strings that could change and the first line related to 'total'
+echo Backup files :
+ls -l ${BACKUPS_DIR} | awk '{ gsub(/[0-9]/,"x",$9);print $1" "t$3" "$4" "$9 }' |  grep -v '^total'
