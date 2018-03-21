@@ -128,4 +128,4 @@ $TEST_BASEDIR/bash/exec_any_foglamp_command.bash kill                           
 echo -e "YES" | $TEST_BASEDIR/bash/exec_any_foglamp_command.bash reset                                                  >>  ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
 
 $TEST_BASEDIR/bash/exec_any_foglamp_command.bash start                                                                  > ${RESULT_DIR}/$TEST_NAME.0.temp 2>&1
-tail -n1 ${RESULT_DIR}/$TEST_NAME.0.temp                                                                                >>  ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+tail -n1 ${RESULT_DIR}/$TEST_NAME.0.temp                                                                                2>> ${RESULT_DIR}/$TEST_NAME.2.temp
