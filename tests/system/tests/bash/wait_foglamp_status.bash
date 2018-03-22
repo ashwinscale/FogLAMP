@@ -1,5 +1,11 @@
 #!/bin/bash
 
+#
+# Expected input parameters :
+#
+#   $1 = FogLAMP status to achieve {RUNNING|STOPPED}
+#
+
 function evaluate_foglamp_status {
 
     output=$(${FOGLAMP_EXE} status 2>&1)

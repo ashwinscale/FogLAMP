@@ -66,6 +66,20 @@ export TMP_FILE_APPEND="$RESULT_DIR/$TEST_NAME.5.temp"
 export TEST_ID="${TEST_NAME:0:4}"
 export TEST_ASSET_CODE=${ASSET_CODE}_${TEST_ID}
 
+
+#
+## Test preparation
+#
+
+# Ensure FogLAMP is stopped
+$TEST_BASEDIR/bash/exec_any_foglamp_command.bash stop                                                                   >>  ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+$TEST_BASEDIR/bash/exec_any_foglamp_command.bash kill                                                                   >>  ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+
+echo -e "YES" | $TEST_BASEDIR/bash/exec_any_foglamp_command.bash reset                                                  >>  ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+
+$TEST_BASEDIR/bash/exec_any_foglamp_command.bash start                                                                  > ${RESULT_DIR}/$TEST_NAME.0.temp 2>&1
+tail -n1 ${RESULT_DIR}/$TEST_NAME.0.temp                                                                                2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+
 #
 ## Main
 #

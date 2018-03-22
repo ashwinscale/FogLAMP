@@ -49,6 +49,7 @@ declare CMD_CURL
 declare SUITE_NAME
 declare TMP_DIRECTORY
 
+declare FOGLAMP_EXE
 
 # Reads configuration setting
 source ${SUITE_BASEDIR}/suite.cfg
@@ -70,22 +71,51 @@ export TEST_ID="${TEST_NAME:0:4}"
 export TEST_ASSET_CODE=${ASSET_CODE}_${TEST_ID}
 
 #
+## Test preparation
+#
+
+# Configures FogLAMP for the communication with the PI Server using OMF.
+$TEST_BASEDIR/bash/OMF_configure.bash
+
+# Injects data into FogLAMP
+echo '[{"name":"'${TEST_ASSET_CODE}'","sensor_values":[{"name":"sensor","type":"number","min":10,"max":10,"precision":0}]}]' >   $RESULT_DIR/$TEST_NAME.801.temp 2>&1
+$TEST_BASEDIR/bash/inject_fogbench_data.bash -t $RESULT_DIR/$TEST_NAME.801.temp                                         >>  $RESULT_DIR/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+grep '^Total Messages Transferred: ' $RESULT_DIR/$TEST_NAME.1.temp
+
+# Waits until either the data is available in the PI server or it reaches the timeout.
+$TEST_BASEDIR/bash/OMF_wait_data.bash full ${OMF_PRODUCER_TOKEN} ${TEST_ASSET_CODE}
+
+#
 ## Main
 #
 
-###  #########################################################################################:
-
-
 # Updates the expected file to avoid storing of hardcoded versions
-echo "${FOGLAMP_NAME} ${FOGLAMP_SNAP_VERSION}"         >  ${SUITE_NAME}/e/${TEST_NAME}.expected
-echo "${FOGLAMP_NAME} ${FOGLAMP_SNAP_UPDATE_VERSION}"  >> ${SUITE_NAME}/e/${TEST_NAME}.expected
+cp ${SUITE_NAME}/e/${TEST_NAME}.exp_base            ${SUITE_NAME}/e/${TEST_NAME}.expected
+sed -i "s/x.x.x1/${FOGLAMP_SNAP_VERSION}/"          ${SUITE_NAME}/e/${TEST_NAME}.expected
+sed -i "s/x.x.x2/${FOGLAMP_SNAP_UPDATE_VERSION}/"   ${SUITE_NAME}/e/${TEST_NAME}.expected
+
+$TEST_BASEDIR/bash/exec_any_foglamp_command.bash stop                                                                   >>  ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+$TEST_BASEDIR/bash/exec_any_foglamp_command.bash kill                                                                   >>  ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
 
 # Lists the initial snap
 version_initial=`snap list | grep ${FOGLAMP_NAME} | awk '{ print $1 " " $2}'                                            2>> ${RESULT_DIR}/$TEST_NAME.2.temp`
 echo ${version_initial}
 
 # Starts FogLAMP
-$TEST_BASEDIR/bash/starts_foglamp.bash                                                                                  >>  ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+$TEST_BASEDIR/bash/exec_any_foglamp_command.bash start                                                                  > ${TMP_FILE_OVERWRITE}  2>&1
+tail -n1 ${TMP_FILE_OVERWRITE}
+
+#
+# Loads data in parallel at the update
+#
+$TEST_BASEDIR/bash/sleep.bash 10
+command="$TEST_BASEDIR/bash/inject_sample_data_continuous.bash $TEST_ASSET_CODE"
+$command >> ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp  &
+pid=$!
+echo Injection process started.
+echo Injection process PID :$pid:                                                                                       >>  ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+$TEST_BASEDIR/bash/sleep.bash 10
+$TEST_BASEDIR/bash/retrieve_asset_list.bash                                                                             >>  ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
 
 # Starts the update process to create the initial configuration
 ${CMD_CURL}  -X PUT http://localhost:8081/foglamp/update                                                                >>  ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
@@ -106,6 +136,10 @@ EOF
 # Retrieves the updated configuration - for monitoring reason
 ${CMD_CURL}  -X GET http://localhost:8081/foglamp/category/SNAP_UPD/repository                                          >> ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
 
+$TEST_BASEDIR/bash/retrieve_asset_list.bash                                                                             >>  ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+
+${FOGLAMP_EXE} status                                                                                                   >> $RESULT_DIR/$TEST_NAME.1.temp 2>&1
+
 # Executes the update retrieving the snap from the local file system
 ${CMD_CURL}  -X PUT http://localhost:8081/foglamp/update                                                                >>  ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
 
@@ -123,7 +157,7 @@ do
     else
         if [[ $count -le ${RETRY_COUNT} ]]
         then
-            echo FogLAMP still not updated, waiting... - N. of retries :${count}:                                       >> ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+            echo FogLAMP not updated yet, waiting... - N. of retries :${count}:                                         >> ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
             sleep 1
             count=$((count+1))
         else
@@ -136,3 +170,17 @@ done
 # Lists final FogLAMP snap version
 version_updated=`snap list | grep ${FOGLAMP_NAME} |  awk '{ print $1 " " $2}'   2>> ${RESULT_DIR}/$TEST_NAME.2.temp`
 echo ${version_updated}
+
+${FOGLAMP_EXE} status                                                                                                   >> $RESULT_DIR/$TEST_NAME.1.temp 2>&1
+$TEST_BASEDIR/bash/sleep.bash 20
+${FOGLAMP_EXE} status                                                                                                   >> $RESULT_DIR/$TEST_NAME.1.temp 2>&1
+
+$TEST_BASEDIR/bash/retrieve_asset_list.bash                                                                             >>  ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+
+# Kills the injection process
+echo Kills the injection process.
+echo Kills the injection process PID :${pid}:                                                                           >>  ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+kill -9 ${pid}                                                                                                          >>  ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+# wait is used to avoid the message '...Killed...' in the stdout/stderr
+wait    ${pid}                                                                                                          >>  ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
+$TEST_BASEDIR/bash/sleep.bash 5

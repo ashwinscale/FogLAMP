@@ -1,5 +1,12 @@
 #!/bin/bash
 
+#
+# Expected input parameters :
+#
+#   $1 = Backup Id to enquiry
+#   $2 = Status of the backup achieve {RESTORED}
+#
+
 if [[ "${EXECUTION_ENV}" != "ucore" ]]; then
 
     echo ERROR : Test implemented only for the Ubuntu Core environment.

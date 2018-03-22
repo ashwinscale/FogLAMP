@@ -120,12 +120,3 @@ grep '^Total Messages Transferred: ' $RESULT_DIR/$TEST_NAME.1.temp
 
 # Waits until either the data is available in the PI server or it reaches the timeout.
 $TEST_BASEDIR/bash/OMF_wait_data.bash full ${OMF_PRODUCER_TOKEN} ${TEST_ASSET_CODE}
-
-# Ensure FogLAMP is stopped
-$TEST_BASEDIR/bash/exec_any_foglamp_command.bash stop                                                                   >>  ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
-$TEST_BASEDIR/bash/exec_any_foglamp_command.bash kill                                                                   >>  ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
-
-echo -e "YES" | $TEST_BASEDIR/bash/exec_any_foglamp_command.bash reset                                                  >>  ${RESULT_DIR}/$TEST_NAME.1.temp 2>> ${RESULT_DIR}/$TEST_NAME.2.temp
-
-$TEST_BASEDIR/bash/exec_any_foglamp_command.bash start                                                                  > ${RESULT_DIR}/$TEST_NAME.0.temp 2>&1
-tail -n1 ${RESULT_DIR}/$TEST_NAME.0.temp                                                                                2>> ${RESULT_DIR}/$TEST_NAME.2.temp
