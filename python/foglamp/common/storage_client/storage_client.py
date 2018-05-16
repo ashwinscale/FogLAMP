@@ -12,9 +12,11 @@ __copyright__ = "Copyright (c) 2017 OSIsoft, LLC"
 __license__ = "Apache 2.0"
 __version__ = "${VERSION}"
 
-from abc import ABC, abstractmethod
+
+import aiohttp
 import http.client
 import json
+from abc import ABC, abstractmethod
 
 from foglamp.common import logger
 from foglamp.common.service_record import ServiceRecord
@@ -22,7 +24,7 @@ from foglamp.common.storage_client.exceptions import *
 from foglamp.common.storage_client.utils import Utils
 
 
-_LOGGER = logger.setup(__name__)
+_LOGGER = logger.setup(__name__, level=20)
 
 
 class AbstractStorage(ABC):
@@ -530,5 +532,211 @@ class ReadingsStorageClient(StorageClient):
         if r.status in range(400, 600):
             _LOGGER.error("PUT url %s, Error code: %d, reason: %s, details: %s", put_url, r.status, r.reason, jdoc)
             raise StorageServerError(code=r.status, reason=r.reason, error=jdoc)
+
+        return jdoc
+
+
+class ReadingsStorageClientAsync(ReadingsStorageClient):
+    """ Readings table operations """
+
+    def __init__(self, core_mgt_host, core_mgt_port, svc=None):
+        super().__init__(core_mgt_host=core_mgt_host, core_mgt_port=core_mgt_port, svc=svc)
+
+    @classmethod
+    async def append(cls, readings):
+        """
+        :param readings:
+        :return:
+
+        :Example:
+            curl -X POST http://0.0.0.0:8080/storage/reading -d @payload.json
+
+            {
+              "readings" : [
+                {
+                  "asset_code": "MyAsset",
+                  "read_key" : "5b3be500-ff95-41ae-b5a4-cc99d08bef40",
+                  "reading" : { "rate" : 18.4 },
+                  "user_ts" : "2017-09-21 15:00:09.025655"
+                },
+                {
+                "asset_code": "MyAsset",
+                "read_key" : "5b3be500-ff95-41ae-b5a4-cc99d18bef40",
+                "reading" : { "rate" : 45.1 },
+                "user_ts" : "2017-09-21 15:03:09.025655"
+                }
+              ]
+            }
+
+        """
+
+        if not readings:
+            raise ValueError("Readings payload is missing")
+
+        if not Utils.is_json(readings):
+            raise TypeError("Readings payload must be a valid JSON")
+
+        try:
+            url = 'http://' + cls._base_url + '/storage/reading'
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, data=readings) as resp:
+                    status_code = resp.status
+                    text = await resp.text()
+                    jdoc = json.loads(text, strict=False)
+                    if status_code != 200:
+                        _LOGGER.error("POST url %s with payload: %s, Error code: %d, reason: %s, details: %s",
+                                      '/storage/reading', readings, resp.status, resp.reason, jdoc)
+                        raise StorageServerError(code=resp.status, reason=resp.reason, error=jdoc)
+                    _LOGGER.debug("Inserted %s records", jdoc['readings_added'])
+        except Exception as ex:
+            raise Exception(str(ex))
+
+        return jdoc
+
+    @classmethod
+    async def fetch(cls, reading_id, count):
+        """
+
+        :param reading_id: the first reading ID in the block that is retrieved
+        :param count: the number of readings to return, if available
+        :return:
+        :Example:
+            curl -X  GET http://0.0.0.0:8080/storage/reading?id=2&count=3
+
+        """
+
+        if reading_id is None:
+            raise ValueError("first reading id to retrieve the readings block is required")
+
+        if count is None:
+            raise ValueError("count is required to retrieve the readings block")
+
+        try:
+            count = int(count)
+        except ValueError:
+            raise
+
+        try:
+            get_url = '/storage/reading?id={}&count={}'.format(reading_id, count)
+            url = 'http://' + cls._base_url + get_url
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as resp:
+                    status_code = resp.status
+                    text = await resp.text()
+                    jdoc = json.loads(text, strict=False)
+                    if status_code != 200:
+                        _LOGGER.error("GET url: %s, Error code: %d, reason: %s, details: %s", url, resp.status,
+                                      resp.reason, jdoc)
+                        raise StorageServerError(code=resp.status, reason=resp.reason, error=jdoc)
+                    # _LOGGER.debug("Inserted %s records", jdoc['readings_added'])
+        except Exception as ex:
+            raise Exception(str(ex))
+
+        return jdoc
+
+    @classmethod
+    async def query(cls, query_payload):
+        """
+
+        :param query_payload:
+        :return:
+        :Example:
+            curl -X PUT http://0.0.0.0:8080/storage/reading/query -d @payload.json
+
+            @payload.json content:
+            {
+              "where" : {
+                "column" : "asset_code",
+                "condition" : "=",
+                "value" : "MyAsset"
+                }
+            }
+        """
+
+        if not query_payload:
+            raise ValueError("Query payload is missing")
+
+        if not Utils.is_json(query_payload):
+            raise TypeError("Query payload must be a valid JSON")
+
+        try:
+            url = 'http://' + cls._base_url + '/storage/reading/query'
+            async with aiohttp.ClientSession() as session:
+                async with session.put(url, data=query_payload) as resp:
+                    status_code = resp.status
+                    text = await resp.text()
+                    jdoc = json.loads(text, strict=False)
+                    if status_code != 200:
+                        _LOGGER.error("PUT url %s with query payload: %s, Error code: %d, reason: %s, details: %s",
+                                      '/storage/reading/query', query_payload, resp.status, resp.reason, jdoc)
+                        raise StorageServerError(code=resp.status, reason=resp.reason, error=jdoc)
+                        # _LOGGER.debug("Inserted %s records", jdoc['readings_added'])
+        except Exception as ex:
+            raise Exception(str(ex))
+
+        return jdoc
+
+    @classmethod
+    async def purge(cls, age=None, sent_id=0, size=None, flag=None):
+        """ Purge readings based on the age of the readings
+
+        :param age: the maximum age of data to retain, expressed in hours
+        :param sent_id: the id of the last reading to be sent out of FogLAMP
+        :param size: the maximum size of data to retain, expressed in Kbytes
+        :param flag: define what to do about unsent readings. Valid options are retain or purge
+        :return: a JSON with the number of readings removed, the number of unsent readings removed
+            and the number of readings that remain
+        :Example:
+            curl -X PUT "http://0.0.0.0:<storage_service_port>/storage/reading/purge?age=<age>&sent=<reading id>&flags=<flags>"
+            curl -X PUT "http://0.0.0.0:<storage_service_port>/storage/reading/purge?age=24&sent=2&flags=PURGE"
+            curl -X PUT "http://0.0.0.0:<storage_service_port>/storage/reading/purge?size=1024&sent=0&flags=PURGE"
+        """
+
+        valid_flags = ['retain', 'purge']
+
+        if flag and flag.lower() not in valid_flags:
+            raise InvalidReadingsPurgeFlagParameters
+
+        if age and size:
+            raise PurgeOnlyOneOfAgeAndSize
+
+        if not age and not size:
+            raise PurgeOneOfAgeAndSize
+
+        # age should be int
+        # size should be int
+        # sent_id should again be int
+        try:
+            if age is not None:
+                _age = int(age)
+
+            if size is not None:
+                _size = int(size)
+
+            _sent_id = int(sent_id)
+        except ValueError:
+            raise
+
+        if age:
+            put_url = '/storage/reading/purge?age={}&sent={}'.format(_age, _sent_id)
+        if size:
+            put_url = '/storage/reading/purge?size={}&sent={}'.format(_size, _sent_id)
+        if flag:
+            put_url += "&flags={}".format(flag.lower())
+
+        try:
+            url = 'http://' + cls._base_url + put_url
+            async with aiohttp.ClientSession() as session:
+                async with session.put(url, data=None) as resp:
+                    status_code = resp.status
+                    text = await resp.text()
+                    jdoc = json.loads(text, strict=False)
+                    if status_code != 200:
+                        _LOGGER.error("PUT url %s, Error code: %d, reason: %s, details: %s", put_url, resp.status,
+                                      resp.reason, jdoc)
+                        raise StorageServerError(code=resp.status, reason=resp.reason, error=jdoc)
+                        # _LOGGER.debug("Inserted %s records", jdoc['readings_added'])
+        except Exception as ex:
+            raise Exception(str(ex))
 
         return jdoc

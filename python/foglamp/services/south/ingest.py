@@ -14,7 +14,7 @@ from typing import List, Union
 import json
 from foglamp.common import logger
 from foglamp.common.statistics import Statistics
-from foglamp.common.storage_client.storage_client import ReadingsStorageClient, StorageClient
+from foglamp.common.storage_client.storage_client import ReadingsStorageClient, ReadingsStorageClientAsync, StorageClient
 from foglamp.common.storage_client.exceptions import StorageServerError
 
 __author__ = "Terris Linenbach"
@@ -22,7 +22,7 @@ __copyright__ = "Copyright (c) 2017 OSIsoft, LLC"
 __license__ = "Apache 2.0"
 __version__ = "${VERSION}"
 
-_LOGGER = logger.setup(__name__)  # type: logging.Logger
+_LOGGER = logger.setup(__name__, level=20)  # type: logging.Logger
 _MAX_ATTEMPTS = 2
 
 # _LOGGER = logger.setup(__name__, level=logging.DEBUG)  # type: logging.Logger
@@ -43,6 +43,7 @@ class Ingest(object):
     _parent_service = None
 
     readings_storage = None  # type: Readings
+    readings_storage_async = None  # type: Readings
     storage = None  # type: Storage
 
     _readings_stats = 0  # type: int
@@ -205,6 +206,7 @@ class Ingest(object):
         cls._parent_service = parent
 
         cls.readings_storage = ReadingsStorageClient(cls._core_management_host, cls._core_management_port)
+        cls.readings_storage_async = ReadingsStorageClientAsync(cls._core_management_host, cls._core_management_port)
         cls.storage = StorageClient(cls._core_management_host, cls._core_management_port)
 
         await cls._read_config()
@@ -380,9 +382,10 @@ class Ingest(object):
                     payload['readings'] = readings_list
 
                     try:
-                        cls.readings_storage.append(json.dumps(payload))
+                        await cls.readings_storage_async.append(json.dumps(payload))
                         batch_size = len(readings_list)
                         cls._readings_stats += batch_size
+                        _LOGGER.debug("Inserted %s records", batch_size)
                     except StorageServerError as ex:
                         err_response = ex.error
                         # if key error in next, it will be automatically in parent except block
