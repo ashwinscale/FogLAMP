@@ -12,9 +12,11 @@ __copyright__ = "Copyright (c) 2017 OSIsoft, LLC"
 __license__ = "Apache 2.0"
 __version__ = "${VERSION}"
 
-from abc import ABC, abstractmethod
+
+import aiohttp
 import http.client
 import json
+from abc import ABC, abstractmethod
 
 from foglamp.common import logger
 from foglamp.common.service_record import ServiceRecord
@@ -22,7 +24,7 @@ from foglamp.common.storage_client.exceptions import *
 from foglamp.common.storage_client.utils import Utils
 
 
-_LOGGER = logger.setup(__name__)
+_LOGGER = logger.setup(__name__, level=20)
 
 
 class AbstractStorage(ABC):
@@ -530,5 +532,63 @@ class ReadingsStorageClient(StorageClient):
         if r.status in range(400, 600):
             _LOGGER.error("PUT url %s, Error code: %d, reason: %s, details: %s", put_url, r.status, r.reason, jdoc)
             raise StorageServerError(code=r.status, reason=r.reason, error=jdoc)
+
+        return jdoc
+
+
+class ReadingsStorageClientAsync(ReadingsStorageClient):
+    """ Readings table operations """
+
+    def __init__(self, core_mgt_host, core_mgt_port, svc=None):
+        super().__init__(core_mgt_host=core_mgt_host, core_mgt_port=core_mgt_port, svc=svc)
+
+    @classmethod
+    async def append(cls, readings):
+        """
+        :param readings:
+        :return:
+
+        :Example:
+            curl -X POST http://0.0.0.0:8080/storage/reading -d @payload.json
+
+            {
+              "readings" : [
+                {
+                  "asset_code": "MyAsset",
+                  "read_key" : "5b3be500-ff95-41ae-b5a4-cc99d08bef40",
+                  "reading" : { "rate" : 18.4 },
+                  "user_ts" : "2017-09-21 15:00:09.025655"
+                },
+                {
+                "asset_code": "MyAsset",
+                "read_key" : "5b3be500-ff95-41ae-b5a4-cc99d18bef40",
+                "reading" : { "rate" : 45.1 },
+                "user_ts" : "2017-09-21 15:03:09.025655"
+                }
+              ]
+            }
+
+        """
+
+        if not readings:
+            raise ValueError("Readings payload is missing")
+
+        if not Utils.is_json(readings):
+            raise TypeError("Readings payload must be a valid JSON")
+
+        try:
+            url = 'http://' + cls._base_url + '/storage/reading'
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, data=readings) as resp:
+                    status_code = resp.status
+                    text = await resp.text()
+                    jdoc = json.loads(text, strict=False)
+                    if status_code != 200:
+                        _LOGGER.error("POST url %s with payload: %s, Error code: %d, reason: %s, details: %s",
+                                      '/storage/reading', readings, resp.status, resp.reason, jdoc)
+                        raise StorageServerError(code=resp.status, reason=resp.reason, error=jdoc)
+                    _LOGGER.debug("Inserted %s records", jdoc['readings_added'])
+        except Exception as ex:
+            raise Exception(str(ex))
 
         return jdoc
