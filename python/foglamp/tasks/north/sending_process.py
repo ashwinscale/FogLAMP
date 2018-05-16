@@ -275,7 +275,7 @@ class SendingProcess:
         "duration": {
             "description": "How long the sending process should run (in seconds) before stopping.",
             "type": "integer",
-            "default": "60"
+            "default": "120"
         },
         "source": {
             "description": "Defines the source of the data to be sent on the stream, "
@@ -286,7 +286,7 @@ class SendingProcess:
         "blockSize": {
             "description": "The size of a block of readings to send in each transmission.",
             "type": "integer",
-            "default": "500"
+            "default": "1900"
         },
         "sleepInterval": {
             "description": "A period of time, expressed in seconds, "

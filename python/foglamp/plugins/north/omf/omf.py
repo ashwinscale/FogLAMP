@@ -89,12 +89,12 @@ _CONFIG_DEFAULT_OMF = {
     "URL": {
         "description": "The URL of the PI Connector to send data to",
         "type": "string",
-        "default": "https://pi-server:5460/ingress/messages"
+        "default": "https://10.0.0.172:5460/ingress/messages"
     },
     "producerToken": {
         "description": "The producer token that represents this FogLAMP stream",
         "type": "string",
-        "default": "omf_north_0001"
+        "default": "uid=0a5c48cd-9cd8-4ef6-b7dc-ea8b6e38907e&crt=20180501225727392&sig=cAWrsb4zPC5f9sXJse6Qs30GujB3zt+WRilXKRtTw8U="
     },
     "OMFMaxRetry": {
         "description": "Max number of retries for the communication with the OMF PI Connector Relay",
@@ -396,6 +396,7 @@ def plugin_send(data, raw_data, stream_id):
             omf_north.create_omf_objects(raw_data, config_category_name, type_id)
             try:
                 omf_north.send_in_memory_data_to_picromf("Data", data_to_send)
+                # test_tmp = True
             except Exception as ex:
                 # Forces the recreation of PIServer's objects on the first error occurred
                 if _recreate_omf_objects:
