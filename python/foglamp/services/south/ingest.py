@@ -23,7 +23,7 @@ __license__ = "Apache 2.0"
 __version__ = "${VERSION}"
 
 _LOGGER = logger.setup(__name__, level=20)  # type: logging.Logger
-_MAX_ATTEMPTS = 2
+_MAX_ATTEMPTS = 5
 
 # _LOGGER = logger.setup(__name__, level=logging.DEBUG)  # type: logging.Logger
 # _LOGGER = logger.setup(__name__, destination=logger.CONSOLE, level=logging.DEBUG)
@@ -98,13 +98,13 @@ class Ingest(object):
     _write_statistics_frequency_seconds = 5
     """The number of seconds to wait before writing readings-related statistics to storage"""
 
-    _readings_buffer_size = 16000
+    _readings_buffer_size = 75000
     """Maximum number of readings to buffer in memory"""
 
-    _max_concurrent_readings_inserts = 2
+    _max_concurrent_readings_inserts = 5
     """Maximum number of concurrent processes that send batches of readings to storage"""
 
-    _readings_insert_batch_size = 8000
+    _readings_insert_batch_size = 15000
     """Maximum number of readings in a batch of inserts"""
 
     _readings_insert_batch_timeout_seconds = 60 
@@ -300,6 +300,9 @@ class Ingest(object):
         Use ReadingsStorageClient().append(json_payload_of_readings)
         """
         _LOGGER.info('Insert readings loop started')
+        _LOGGER.debug(" PERF 001 - START  -  list_index |{idx}| ".format (
+           idx=list_index)
+        )
 
         readings_list = cls._readings_lists[list_index]
         min_readings_reached = cls._readings_list_batch_size_reached[list_index]
@@ -374,8 +377,8 @@ class Ingest(object):
 
             # Perform insert. Retry when fails.
             while True:
-                # _LOGGER.debug('Begin insert: Queue index: %s Batch size: %s', list_index,
-                #               len(list))
+               _LOGGER.debug('Begin insert: Queue index: %s Batch size: %s', list_index,
+                             len(list))
 
                 try:
                     payload = dict()
@@ -385,7 +388,7 @@ class Ingest(object):
                         await cls.readings_storage_async.append(json.dumps(payload))
                         batch_size = len(readings_list)
                         cls._readings_stats += batch_size
-                        _LOGGER.debug("Inserted %s records", batch_size)
+                        _LOGGER.debug("Inserted %s records from queue index %s", batch_size, list_index)
                     except StorageServerError as ex:
                         err_response = ex.error
                         # if key error in next, it will be automatically in parent except block
@@ -399,8 +402,8 @@ class Ingest(object):
                             batch_size = len(readings_list)
                             cls._discarded_readings_stats += batch_size
 
-                    # _LOGGER.debug('End insert: Queue index: %s Batch size: %s',
-                    #               list_index, batch_size)
+                    _LOGGER.debug('End insert: Queue index: %s Batch size: %s',
+                                  list_index, batch_size)
                     break
                 except Exception as ex:
                     attempt += 1
@@ -414,7 +417,7 @@ class Ingest(object):
                         batch_size = len(readings_list)
                         cls._discarded_readings_stats += batch_size
                         _LOGGER.warning('Insert failed: Queue index: %s Batch size: %s', list_index, batch_size)
-                    break
+                    continue
 
             del readings_list[:batch_size]
 
