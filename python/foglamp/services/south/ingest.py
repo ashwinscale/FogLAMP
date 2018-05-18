@@ -98,16 +98,16 @@ class Ingest(object):
     _write_statistics_frequency_seconds = 5
     """The number of seconds to wait before writing readings-related statistics to storage"""
 
-    _readings_buffer_size = 75000
+    _readings_buffer_size = 50
     """Maximum number of readings to buffer in memory"""
 
-    _max_concurrent_readings_inserts = 5
+    _max_concurrent_readings_inserts = 1
     """Maximum number of concurrent processes that send batches of readings to storage"""
 
-    _readings_insert_batch_size = 15000
+    _readings_insert_batch_size = 50
     """Maximum number of readings in a batch of inserts"""
 
-    _readings_insert_batch_timeout_seconds = 60 
+    _readings_insert_batch_timeout_seconds = 10000
     """Number of seconds to wait for a readings list to reach the minimum batch size"""
 
     _max_readings_insert_batch_connection_idle_seconds = 60
@@ -377,9 +377,6 @@ class Ingest(object):
 
             # Perform insert. Retry when fails.
             while True:
-               _LOGGER.debug('Begin insert: Queue index: %s Batch size: %s', list_index,
-                             len(list))
-
                 try:
                     payload = dict()
                     payload['readings'] = readings_list
@@ -505,7 +502,7 @@ class Ingest(object):
                     cls._current_readings_list_index = list_index
                     return True
 
-        _LOGGER.warning('The ingest service is unavailable')
+        # _LOGGER.warning('The ingest service is unavailable')
         return False
 
     @classmethod

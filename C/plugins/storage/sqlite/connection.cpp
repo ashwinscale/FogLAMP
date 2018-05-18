@@ -1376,6 +1376,7 @@ int		row = 0;
 		const char *str = (*itr)["user_ts"].GetString();
 		// Check if the string is a function
 		string s (str);
+		/*
 		regex e ("[a-zA-Z][a-zA-Z0-9_]*\\(.*\\)");
 		if (regex_match (s,e))
 		{
@@ -1390,10 +1391,11 @@ int		row = 0;
 		}
 		else
 		{
+		*/
 			sql.append('\'');
 			sql.append(escape(str));
 			sql.append('\'');
-		}
+		//}
 
 		sql.append(')');
 	}
